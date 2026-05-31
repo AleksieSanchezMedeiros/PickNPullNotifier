@@ -5,6 +5,7 @@ import os
 import smtplib
 
 from email.message import EmailMessage
+from email.mime.image import MIMEImage
 
 # --------------------------
 # CONFIG
@@ -30,8 +31,10 @@ SEEN_FILE = "seen.txt"
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 465
 
-EMAIL_FROM = "cerezen0@gmail.com"
-EMAIL_PASSWORD = "ulxo lcek jhsg ygzi"
+import os
+
+EMAIL_FROM = os.environ["EMAIL_FROM"]
+EMAIL_PASSWORD = os.environ["EMAIL_PASSWORD"]
 
 EMAIL_TO = [
     "aleksiesanmed@gmail.com"
@@ -41,7 +44,7 @@ EMAIL_TO = [
 # EMAIL
 # --------------------------
 
-def send_email(subject, body):
+def send_email(subject, body, image_url=None):
     msg = EmailMessage()
 
     msg["Subject"] = subject
@@ -49,6 +52,33 @@ def send_email(subject, body):
     msg["To"] = ", ".join(EMAIL_TO)
 
     msg.set_content(body)
+
+    if image_url:
+        try:
+            img_data = requests.get(image_url, timeout=30).content
+
+            msg.add_alternative(
+                f"""
+                <html>
+                    <body>
+                        <pre>{body}</pre>
+                        <br>
+                        <img src="cid:integra_image">
+                    </body>
+                </html>
+                """,
+                subtype="html"
+            )
+
+            msg.get_payload()[1].add_related(
+                img_data,
+                maintype="image",
+                subtype="jpeg",
+                cid="<integra_image>"
+            )
+
+        except Exception as e:
+            print("Failed to attach image:", e)
 
     with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
         smtp.login(EMAIL_FROM, EMAIL_PASSWORD)
@@ -129,33 +159,35 @@ def check_inventory():
 
             if vehicle_id in seen:
                 continue
+            
+            image_url = car.get("largeImage")
 
             message = f"""
-NEW INTEGRA FOUND
+            🚗 NEW INTEGRA FOUND
 
-Year: {car.get("year")}
-Make: {car.get("make")}
-Model: {car.get("model")}
+            Year: {car.get('year')}
+            Make: {car.get('make')}
+            Model: {car.get('model')}
 
-Location: {car.get("locationName")}
-City: {car.get("city")}, {car.get("state")}
-Row: {car.get("row")}
+            Location: {car.get('locationName')}
+            City: {car.get('city')}, {car.get('state')}
+            Row: {car.get('row')}
 
-Date Added: {car.get("dateAdded")}
-VIN: {car.get("vin")}
-Barcode: {car.get("barCodeNumber")}
+            Date Added: {car.get('dateAdded')}
+            VIN: {car.get('vin')}
+            Barcode: {car.get('barCodeNumber')}
 
-Image:
-{car.get("largeImage")}
-"""
+            Image attached below.
+            """
 
             print(message)
 
             try:
                 send_email(
-                    "🚗 New Acura Integra Found!",
-                    message
-                )
+    "🚗 New Acura Integra Found!",
+    message,
+    image_url
+)
 
                 print("Notification sent.")
 
@@ -189,18 +221,7 @@ def main():
 
     print("Pick-N-Pull Integra Notifier Started")
 
-    # Initial run
     check_inventory()
 
-    while True:
-
-        print(
-            f"Sleeping {CHECK_INTERVAL // 60} minutes..."
-        )
-
-        time.sleep(CHECK_INTERVAL)
-
-        check_inventory()
-
 if __name__ == "__main__":
-    main()
+    check_inventory()

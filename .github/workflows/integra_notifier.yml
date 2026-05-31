@@ -1,0 +1,44 @@
+name: PickNPull Integra Notifier
+
+on:
+  schedule:
+    # Runs every day at 8 AM Pacific during standard time.
+    # Adjust as desired.
+    - cron: '0 16 * * *'
+
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run notifier
+        env:
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: |
+          python main.py
+
+      - name: Commit updated seen.txt
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add seen.txt
+
+          git diff --cached --quiet || git commit -m "Update seen vehicles"
+
+          git push
