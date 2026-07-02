@@ -97,6 +97,36 @@ def get_vehicles(make_id, model_id):
 
     return response.json()
 
+def decode_vin(vin):
+    if not vin:
+        return {}
+
+    try:
+        url = (
+            f"https://vpic.nhtsa.dot.gov/api/vehicles/"
+            f"DecodeVinValuesExtended/{vin}?format=json"
+        )
+
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+
+        results = response.json()["Results"][0]
+
+        return {
+            "trim": results.get("Trim"),
+            "series": results.get("Series"),
+            "engine": results.get("EngineModel"),
+            "displacement": results.get("DisplacementL"),
+            "cylinders": results.get("EngineCylinders"),
+            "transmission": results.get("TransmissionStyle"),
+            "drive": results.get("DriveType"),
+            "body": results.get("BodyClass"),
+        }
+
+    except Exception as e:
+        print(f"VIN decode failed for {vin}: {e}")
+        return {}
+
 CHECK_INTERVAL = 24 * 60 * 60  # 24 hour
 
 SEEN_FILE = "seen.txt"
@@ -222,6 +252,9 @@ def check_inventory():
                     continue
 
                 image_url = car.get("largeImage")
+                
+                vin = car.get("vin")
+                vin_info = decode_vin(vin)
 
                 message = f"""
     🚗 NEW {search['name'].upper()} FOUND
@@ -229,6 +262,15 @@ def check_inventory():
     Year: {car.get('year')}
     Make: {car.get('make')}
     Model: {car.get('model')}
+
+    Trim: {vin_info.get('trim')}
+    Series: {vin_info.get('series')}
+    Engine: {vin_info.get('engine')}
+    Displacement: {vin_info.get('displacement')} L
+    Cylinders: {vin_info.get('cylinders')}
+    Transmission: {vin_info.get('transmission')}
+    Drive: {vin_info.get('drive')}
+    Body: {vin_info.get('body')}
 
     Location: {car.get('locationName')}
     City: {car.get('city')}, {car.get('state')}
