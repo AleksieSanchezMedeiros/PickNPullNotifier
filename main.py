@@ -14,24 +14,96 @@ from email.mime.image import MIMEImage
 ZIP_CODE = "98011"
 DISTANCE = 50
 
-API_URL = (
-    f"https://www.picknpull.com/api/vehicle/search"
-    f"?makeId=67"
-    f"&modelId=958"
-    f"&distance={DISTANCE}"
-    f"&zip={ZIP_CODE}"
-    f"&language=english"
-)
+SEARCHES = [
+    {
+        "name": "Acura Integra",
+        "makeId": 67,
+        "modelId": 958,
+        "minYear": 1994,
+        "maxYear": 2001,
+    },
+    {
+        "name": "Honda Civic",
+        "makeId": 145,
+        "modelId": 2413,
+        "minYear": 1992,
+        "maxYear": 1995,
+    },
+    {
+        "name": "Honda Civic Del Sol",
+        "makeId": 145,
+        "modelId": 2414,
+        "minYear": 1992,
+        "maxYear": 1998,
+    },
+    {
+        "name": "Honda Del Sol",
+        "makeId": 145,
+        "modelId": 2445,
+        "minYear": 1992,
+        "maxYear": 1998,
+    },
+    {
+        "name": "Honda CRX",
+        "makeId": 145,
+        "modelId": 5165,
+        "minYear": 1983,
+        "maxYear": 1998,
+    },
+    {
+        "name": "Honda CR-V",
+        "makeId": 145,
+        "modelId": 2440,
+        "minYear": 1997,
+        "maxYear": 2006,
+    },
+    {
+        "name": "Mazda Miata",
+        "makeId": 180,
+        "modelId": 3577,
+        "minYear": 1990,
+        "maxYear": 2005,
+    },
+    {
+        "name": "Subaru Impreza WRX",
+        "makeId": 226,
+        "modelId": 4155,
+        "minYear": 2000,
+        "maxYear": 2007,
+    },
+]
 
-CHECK_INTERVAL = 24 * 60 * 60  # 1 hour
+def get_vehicles(make_id, model_id):
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 "
+            "(Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 "
+            "Chrome/148.0 Safari/537.36"
+        )
+    }
+
+    url = (
+        "https://www.picknpull.com/api/vehicle/search"
+        f"?makeId={make_id}"
+        f"&modelId={model_id}"
+        f"&distance={DISTANCE}"
+        f"&zip={ZIP_CODE}"
+        "&language=english"
+    )
+
+    response = requests.get(url, headers=headers, timeout=30)
+    response.raise_for_status()
+
+    return response.json()
+
+CHECK_INTERVAL = 24 * 60 * 60  # 24 hour
 
 SEEN_FILE = "seen.txt"
 
 # Email settings
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 465
-
-import os
 
 EMAIL_FROM = os.environ["EMAIL_FROM"]
 EMAIL_PASSWORD = os.environ["EMAIL_PASSWORD"]
@@ -63,7 +135,7 @@ def send_email(subject, body, image_url=None):
                     <body>
                         <pre>{body}</pre>
                         <br>
-                        <img src="cid:integra_image">
+                        <img src="cid:vehicle_image">
                     </body>
                 </html>
                 """,
@@ -74,7 +146,7 @@ def send_email(subject, body, image_url=None):
                 img_data,
                 maintype="image",
                 subtype="jpeg",
-                cid="<integra_image>"
+                cid="vehicle_image"
             )
 
         except Exception as e:
@@ -100,29 +172,6 @@ def save_seen(seen):
         for vehicle_id in seen:
             f.write(vehicle_id + "\n")
 
-# --------------------------
-# API
-# --------------------------
-
-def get_integras():
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 "
-            "(Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 "
-            "Chrome/148.0 Safari/537.36"
-        )
-    }
-
-    response = requests.get(
-        API_URL,
-        headers=headers,
-        timeout=30
-    )
-
-    response.raise_for_status()
-
-    return response.json()
 
 # --------------------------
 # PROCESS
@@ -130,88 +179,100 @@ def get_integras():
 
 def check_inventory():
 
-    print("Checking inventory...")
-
-    seen = load_seen()
-
-    try:
-        data = get_integras()
-
-    except Exception as e:
-        print("API Error:", e)
-        return
-
-    new_found = 0
-
-    for location in data:
-
-        vehicles = location.get("vehicles", [])
-
-        for car in vehicles:
-
-            year = car.get("year", 0)
-
-            # 3rd gen only
-            if not (1994 <= year <= 2001):
-                continue
-
-            vehicle_id = str(car["id"])
-
-            if vehicle_id in seen:
-                continue
-            
-            image_url = car.get("largeImage")
-
-            message = f"""
-            🚗 NEW INTEGRA FOUND
-
-            Year: {car.get('year')}
-            Make: {car.get('make')}
-            Model: {car.get('model')}
-
-            Location: {car.get('locationName')}
-            City: {car.get('city')}, {car.get('state')}
-            Row: {car.get('row')}
-
-            Date Added: {car.get('dateAdded')}
-            VIN: {car.get('vin')}
-            Barcode: {car.get('barCodeNumber')}
-
-            Image attached below.
-            """
-
-            print(message)
-
-            try:
-                send_email(
-    "🚗 New Acura Integra Found!",
-    message,
-    image_url
+    searched = "\n".join(
+    f"• {s['name']} ({s['minYear']}-{s['maxYear']})"
+    for s in SEARCHES
 )
 
-                print("Notification sent.")
+    seen = load_seen()
+    new_found = 0
 
-            except Exception as e:
-                print("Email failed:", e)
+    for search in SEARCHES:
 
-            seen.add(vehicle_id)
-            new_found += 1
+        print(f"Checking {search['name']}...")
 
-    save_seen(seen)
-
-    print(f"Done. {new_found} new vehicle(s).")
-
-    if new_found == 0:
         try:
-            send_email(
-                "Integra Daily Report",
-                "No new 1994-2001 Acura Integras were added today.\n\nNotifier status: OK"
+            data = get_vehicles(
+                search["makeId"],
+                search["modelId"]
             )
-
-            print("Daily report sent.")
-
         except Exception as e:
-            print("Daily report email failed:", e)
+            print(e)
+            continue
+
+        for location in data:
+
+            for car in location.get("vehicles", []):
+
+                year = car.get("year", 0)
+
+                if not (
+                    search["minYear"]
+                    <= year
+                    <= search["maxYear"]
+                ):
+                    continue
+
+                vehicle_key = (
+                    f"{search['name']}:{car['id']}"
+                )
+
+                if vehicle_key in seen:
+                    continue
+
+                image_url = car.get("largeImage")
+
+                message = f"""
+    🚗 NEW {search['name'].upper()} FOUND
+
+    Year: {car.get('year')}
+    Make: {car.get('make')}
+    Model: {car.get('model')}
+
+    Location: {car.get('locationName')}
+    City: {car.get('city')}, {car.get('state')}
+    Row: {car.get('row')}
+
+    Date Added: {car.get('dateAdded')}
+    VIN: {car.get('vin')}
+    Barcode: {car.get('barCodeNumber')}
+
+    Image attached below.
+    """
+
+                print(
+    f"Found {car.get('year')} "
+    f"{car.get('make')} {car.get('model')} "
+    f"at {car.get('locationName')}"
+)
+
+                try:
+                    send_email(
+                        f"🚗 New {search['name']} Found - {car.get('city')}",
+                        message,
+                        image_url
+                    )
+                    print("Notification sent.")
+                except Exception as e:
+                    print("Email failed:", e)
+
+                seen.add(vehicle_key)
+                new_found += 1
+    
+    save_seen(seen)
+    print(f"Done. {new_found} new vehicle(s).")
+    
+    if new_found == 0:
+        send_email(
+    "Daily Pick-N-Pull Report",
+    f"""No new vehicles were added today.
+
+Searched:
+{searched}
+
+Notifier Status: OK
+"""
+)
 
 # --------------------------
 # MAIN LOOP
@@ -219,7 +280,7 @@ def check_inventory():
 
 def main():
 
-    print("Pick-N-Pull Integra Notifier Started")
+    print("Pick-N-Pull Vehicle Notifier Started")
 
     check_inventory()
 
