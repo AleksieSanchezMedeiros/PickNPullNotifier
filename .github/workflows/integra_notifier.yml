@@ -2,9 +2,9 @@ name: PickNPull Integra Notifier
 
 on:
   schedule:
-    # Runs every day at 8 AM Pacific during standard time.
+    # Runs every day at 2:06 AM Pacific during standard time.
     # Adjust as desired.
-    - cron: '0 16 * * *'
+    - cron: '6 14 * * *'
 
   workflow_dispatch:
 
