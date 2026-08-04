@@ -23,11 +23,18 @@ SEARCHES = [
         "maxYear": 2001,
     },
     {
-        "name": "Honda Civic",
+        "name": "EG Honda Civic",
         "makeId": 145,
         "modelId": 2413,
         "minYear": 1992,
         "maxYear": 1995,
+    },
+    {
+        "name": "EK Honda Civic",
+        "makeId": 145,
+        "modelId": 2413,
+        "minYear": 1996,
+        "maxYear": 2000,
     },
     {
         "name": "Honda Civic Del Sol",
