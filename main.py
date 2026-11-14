@@ -146,8 +146,7 @@ EMAIL_FROM = os.environ["EMAIL_FROM"]
 EMAIL_PASSWORD = os.environ["EMAIL_PASSWORD"]
 
 EMAIL_TO = [
-    "aleksiesanmed@gmail.com",
-    "ayadabozed7@gmail.com"
+    "aleksiesanmed@gmail.com"
 ]
 
 # --------------------------
